@@ -54,3 +54,16 @@
 .faq-toggle{flex:0 0 28px;width:28px;height:28px;display:grid;place-items:center;border-radius:8px;background:#2b2040;color:#c4b5fd;font-size:20px}
 .faq-answer{margin:0;padding:0 19px 18px;color:var(--muted);font-size:13px;line-height:1.75}
 .faq-open{border-color:#63469a}
+
+
+/* FAQ accordion: force consistent dark theme and full-width alignment */
+.info-page .faq-list{display:flex;flex-direction:column;align-items:stretch;gap:10px;width:100%;max-width:760px;margin:28px 0 0}
+.info-page .faq-list .faq-item{display:block;width:100%;margin:0;padding:0;background:#14131d;border:1px solid #292637;border-radius:12px;overflow:hidden;box-sizing:border-box}
+.info-page .faq-list .faq-item.faq-open{border-color:#6d4ca5}
+.info-page .faq-list .faq-question,
+.info-page .faq-list button.faq-question{appearance:none;-webkit-appearance:none;display:flex;flex-direction:row;align-items:center;justify-content:space-between;text-align:left;gap:16px;width:100%;min-height:58px;margin:0;padding:16px 18px;background:#14131d!important;background-image:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;color:#f5f4fa!important;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;line-height:1.45;white-space:normal;cursor:pointer;box-sizing:border-box}
+.info-page .faq-list .faq-question span:first-child{display:block;flex:1;min-width:0;text-align:left;overflow-wrap:anywhere}
+.info-page .faq-list .faq-question .faq-toggle{display:grid;place-items:center;flex:0 0 28px;width:28px;height:28px;margin:0;padding:0;border-radius:8px;background:#292238;color:#c4b5fd;font-size:20px;line-height:1}
+.info-page .faq-list .faq-answer{display:block;margin:0;padding:0 18px 18px;background:#14131d;color:#b9b5c7;font-size:13px;line-height:1.7}
+.info-page .faq-list .faq-question:focus-visible{outline:2px solid #a78bfa;outline-offset:-3px}
+@media(max-width:700px){.info-page .faq-list{width:100%;gap:9px}.info-page .faq-list .faq-question{min-height:56px;padding:14px 15px;font-size:13px}.info-page .faq-list .faq-answer{padding:0 15px 15px}}
