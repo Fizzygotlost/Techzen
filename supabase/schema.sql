@@ -22,6 +22,7 @@ create table public.orders (
   notes text default '',
   items jsonb not null check (jsonb_typeof(items) = 'array'),
   total integer not null default 0 check (total >= 0),
+  delivery_fee integer not null default 149 check (delivery_fee >= 0),
   status text not null default 'pending'
     check (status in ('pending','confirmed','shipped','delivered','cancelled')),
   payment_method text not null default 'cash_on_delivery'
@@ -83,7 +84,7 @@ declare
   v_name text;
   v_price integer;
   v_items jsonb := '[]'::jsonb;
-  v_total integer := 0;
+  v_subtotal integer := 0;
 begin
   if jsonb_typeof(new.items) <> 'array' or jsonb_array_length(new.items) = 0 then
     raise exception 'Order must contain at least one item';
@@ -107,7 +108,7 @@ begin
       raise exception 'Product unavailable';
     end if;
 
-    v_total := v_total + (v_price * v_quantity);
+    v_subtotal := v_subtotal + (v_price * v_quantity);
     v_items := v_items || jsonb_build_array(jsonb_build_object(
       'product_id', v_product_id,
       'name', v_name,
@@ -117,7 +118,8 @@ begin
   end loop;
 
   new.items := v_items;
-  new.total := v_total;
+  new.delivery_fee := 149;
+  new.total := v_subtotal + new.delivery_fee;
   new.status := 'pending';
   new.payment_method := 'cash_on_delivery';
   return new;
@@ -127,3 +129,25 @@ $$;
 create trigger normalize_order_request_before_insert
 before insert on public.orders
 for each row execute function public.normalize_order_request();
+
+
+-- Product images: public read, admin-only uploads and management.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('techzen-products', 'techzen-products', true, 5242880, array['image/jpeg','image/png','image/webp'])
+on conflict (id) do update
+  set public = excluded.public,
+      file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
+
+create policy "TechZen admins can upload product images"
+on storage.objects for insert to authenticated
+with check (bucket_id = 'techzen-products' and (select auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+
+create policy "TechZen admins can update product images"
+on storage.objects for update to authenticated
+using (bucket_id = 'techzen-products' and (select auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
+with check (bucket_id = 'techzen-products' and (select auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+
+create policy "TechZen admins can delete product images"
+on storage.objects for delete to authenticated
+using (bucket_id = 'techzen-products' and (select auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
