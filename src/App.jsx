@@ -1,139 +1,89 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, Route, Routes, useNavigate } from "react-router-dom";
-import { ShoppingBag, Search, Menu, X, ShieldCheck, Truck, Headphones, Instagram, Plus, Minus, Trash2, Package, LogOut, LayoutDashboard, ImagePlus } from "lucide-react";
-import { supabase, isConfigured } from "./lib/supabase";
+import { Link, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { ShoppingBag, Search, Menu, X, ShieldCheck, Truck, Headphones, Plus, Minus, Trash2, Package, LogOut, LayoutDashboard, MessageCircle, ArrowLeft } from "lucide-react";
+import { supabase } from "./lib/supabase";
 
-const demoProducts = [
-  { id: "demo-earbuds", name: "Wireless Earbuds with ANC – White", category: "Audio", price: 1499, compare_at: 1599, description: "Stylish wireless earbuds with a compact charging case. Check the supplier's confirmed specifications before ordering.", image_url: "", active: true },
-  { id: "demo-stand", name: "Adjustable Mobile Phone Stand", category: "Accessories", price: 699, compare_at: 899, description: "A practical stand for desks, video calls and everyday viewing.", image_url: "", active: true },
-  { id: "demo-led", name: "LED Strip Lights", category: "Lighting", price: 999, compare_at: 1199, description: "Decorative LED lighting. Confirm length, colour modes and power details with the supplier.", image_url: "", active: true }
-];
-
-function money(n) { return `Rs. ${Number(n || 0).toLocaleString("en-PK")}`; }
+const WHATSAPP = (import.meta.env.VITE_WHATSAPP_NUMBER || "").replace(/[^0-9]/g, "");
+const money = n => `Rs. ${Number(n || 0).toLocaleString("en-PK")}`;
+const stockLabel = p => p.stock == null ? "Availability confirmed on order" : p.stock > 0 ? `${p.stock} in stock` : "Out of stock";
 
 function useProducts() {
-  const [products, setProducts] = useState(demoProducts);
-  useEffect(() => {
-    if (!supabase) return;
-    supabase.from("products").select("*").eq("active", true).order("created_at", { ascending: false })
-      .then(({ data }) => { if (data) setProducts(data); });
-  }, []);
-  return products;
+  const [products,setProducts]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState("");
+  async function load(){setLoading(true);if(!supabase){setError("Store connection is not configured yet.");setLoading(false);return;}const {data,error}=await supabase.from("products").select("*").eq("active",true).order("created_at",{ascending:false});if(error)setError("Products could not be loaded. Please try again later.");else{setProducts(data||[]);setError("");}setLoading(false);}
+  useEffect(()=>{load();},[]);
+  return {products,loading,error,reload:load};
 }
 
-function Header({ count }) {
-  const [open, setOpen] = useState(false);
-  return <header className="header"><Link to="/" className="brand"><span className="brand-mark">TZ</span><span>TECH<span className="purple">ZEN</span><small>TECH MADE EASY</small></span></Link>
-    <nav className={open ? "nav nav-open" : "nav"}><Link onClick={() => setOpen(false)} to="/">Home</Link><a href="/#shop" onClick={() => setOpen(false)}>Shop</a><a href="/#about" onClick={() => setOpen(false)}>About</a><Link onClick={() => setOpen(false)} to="/admin">Admin</Link></nav>
-    <div className="header-actions"><a className="cart-link" href="/#shop"><ShoppingBag size={18}/><span>{count}</span></a><button className="icon-btn mobile-menu" onClick={() => setOpen(!open)} aria-label="Toggle menu">{open ? <X/> : <Menu/>}</button></div>
-  </header>;
+function Header({count}) {
+  const [open,setOpen]=useState(false);
+  return <header className="header"><Link to="/" className="brand"><span className="brand-mark">TZ</span><span>TECH<span className="purple">ZEN</span><small>TECH MADE EASY</small></span></Link><nav className={open?"nav nav-open":"nav"}><Link onClick={()=>setOpen(false)} to="/">Home</Link><a href="/#shop" onClick={()=>setOpen(false)}>Shop</a><Link onClick={()=>setOpen(false)} to="/about">About</Link><Link onClick={()=>setOpen(false)} to="/faq">FAQ</Link><Link onClick={()=>setOpen(false)} to="/contact">Contact</Link><Link onClick={()=>setOpen(false)} to="/admin">Admin</Link></nav><div className="header-actions"><Link className="cart-link" to="/cart"><ShoppingBag size={18}/><span>{count}</span></Link><button className="icon-btn mobile-menu" onClick={()=>setOpen(!open)} aria-label="Toggle menu">{open?<X/>:<Menu/>}</button></div></header>;
 }
 
-function ProductCard({ product, add }) {
-  return <article className="product-card"><div className="product-image">{product.image_url ? <img src={product.image_url} alt={product.name}/> : <div className="image-placeholder"><Package size={42}/><span>TECHZEN</span></div>}
-    {product.compare_at > product.price && <span className="sale-tag">SALE</span>}</div>
-    <div className="product-info"><span className="eyebrow">{product.category || "Gadgets"}</span><h3>{product.name}</h3><p className="price">{money(product.price)} {product.compare_at > product.price && <del>{money(product.compare_at)}</del>}</p><button className="button button-small" onClick={() => add(product)}>Add to cart</button></div></article>;
+function ProductCard({product,add}) {
+ return <article className="product-card"><Link to={`/product/${product.id}`} className="product-image">{product.image_url?<img src={product.image_url} alt={product.name}/>:<div className="image-placeholder"><Package size={42}/><span>TECHZEN</span></div>}{product.compare_at>product.price&&<span className="sale-tag">SALE</span>}</Link><div className="product-info"><span className="eyebrow">{product.category||"Gadgets"}</span><h3><Link to={`/product/${product.id}`}>{product.name}</Link></h3><p className="price">{money(product.price)} {product.compare_at>product.price&&<del>{money(product.compare_at)}</del>}</p><small className="stock-label">{stockLabel(product)}</small><button className="button button-small" disabled={product.stock===0} onClick={()=>add(product)}>Add to cart</button></div></article>;
 }
 
-function Home({ products, add }) {
-  const [query, setQuery] = useState("");
-  const filtered = products.filter(p => `${p.name} ${p.category}`.toLowerCase().includes(query.toLowerCase()));
-  return <><section className="hero"><div className="hero-copy"><span className="eyebrow purple">WELCOME TO TECHZEN</span><h1>Technology that<br/><span className="gradient-text">fits your life.</span></h1><p>Discover useful gadgets and everyday tech essentials at affordable prices.</p><a href="#shop" className="button">Explore products <ShoppingBag size={17}/></a><div className="hero-note"><ShieldCheck size={16}/> Clear pricing · Order support · Pakistan</div></div><div className="hero-art"><div className="orbit orbit-one"/><div className="orbit orbit-two"/><div className="hero-logo">TZ<span>+</span></div><div className="floating-chip">TECH MADE EASY</div></div></section>
-    <section className="trust-strip"><div><Truck/><span>Delivery details confirmed at checkout</span></div><div><ShieldCheck/><span>Transparent product information</span></div><div><Headphones/><span>Customer support</span></div></section>
-    <section id="shop" className="section"><div className="section-heading"><div><span className="eyebrow purple">OUR COLLECTION</span><h2>Explore products</h2></div><label className="search"><Search size={17}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search products..."/></label></div>
-    {filtered.length ? <div className="product-grid">{filtered.map(p=><ProductCard key={p.id} product={p} add={add}/>)}</div> : <p className="muted">No products found.</p>}</section>
-    <section id="about" className="about section"><span className="eyebrow purple">WHY TECHZEN</span><h2>Shop smart. Live better.</h2><p>We're building a simple, transparent way to discover everyday technology. Product availability, delivery and return terms are confirmed before an order is accepted.</p></section></>;
+function Home({products,loading,error,add}) {
+ const [query,setQuery]=useState("");
+ const filtered=products.filter(p=>`${p.name} ${p.category}`.toLowerCase().includes(query.toLowerCase()));
+ return <><section className="hero"><div className="hero-copy"><span className="eyebrow purple">WELCOME TO TECHZEN</span><h1>Technology that<br/><span className="gradient-text">fits your life.</span></h1><p>Discover useful gadgets and everyday tech essentials at affordable prices.</p><a href="#shop" className="button">Explore products <ShoppingBag size={17}/></a><div className="hero-note"><ShieldCheck size={16}/> Clear pricing · Order support · Pakistan</div></div><div className="hero-art"><div className="orbit orbit-one"/><div className="orbit orbit-two"/><div className="hero-logo">TZ<span>+</span></div><div className="floating-chip">TECH MADE EASY</div></div></section><section className="trust-strip"><div><Truck/><span>Delivery details confirmed at checkout</span></div><div><ShieldCheck/><span>Transparent product information</span></div><div><Headphones/><span>Customer support</span></div></section><section id="shop" className="section"><div className="section-heading"><div><span className="eyebrow purple">OUR COLLECTION</span><h2>Explore products</h2></div><label className="search"><Search size={17}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search products..."/></label></div>{loading?<p className="muted">Loading products…</p>:error?<p className="notice">{error}</p>:filtered.length?<div className="product-grid">{filtered.map(p=><ProductCard key={p.id} product={p} add={add}/>)}</div>:<p className="muted">No products found. Check back soon.</p>}</section><section id="about" className="about section"><span className="eyebrow purple">WHY TECHZEN</span><h2>Shop smart. Live better.</h2><p>We aim to make everyday technology easier to discover, with clear product information and order confirmation before dispatch.</p></section></>;
 }
 
-function Checkout({ cart, clear, updateQty }) {
-  const [form, setForm] = useState({ name:"", phone:"", address:"", city:"Karachi", notes:"" });
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const subtotal = cart.reduce((s,x)=>s+x.price*x.qty,0);
-  const deliveryFee = cart.length ? 149 : 0;
-  const total = subtotal + deliveryFee;
-  const change = e => setForm({...form,[e.target.name]:e.target.value});
-  async function submit(e) {
-    e.preventDefault(); setBusy(true); setMessage("");
-    const items = cart.map(x=>({ product_id: x.id, name:x.name, unit_price:x.price, quantity:x.qty }));
-    const payload = { customer_name:form.name, phone:form.phone, address:form.address, city:form.city, notes:form.notes, items, total, delivery_fee:deliveryFee, status:"pending", payment_method:"cash_on_delivery" };
-    if (!supabase) { setMessage("Connect Supabase first to accept real orders. Your cart is still saved on this page."); setBusy(false); return; }
-    const { error } = await supabase.from("orders").insert(payload);
-    setBusy(false);
-    if (error) setMessage("We couldn't submit the order. Please try again or contact support.");
-    else { setMessage("Order request received! The store will contact you to confirm availability and delivery."); clear(); }
-  }
-  return <main className="section checkout"><div><span className="eyebrow purple">SECURE ORDER REQUEST</span><h1>Checkout</h1><p className="muted">Submit your details. We'll confirm stock, delivery charges and the final amount before dispatch.</p>
-    {cart.length===0 ? <p>Your cart is empty. <Link to="/">Continue shopping</Link></p> : <form className="checkout-form" onSubmit={submit}>
-      <label>Full name<input required name="name" value={form.name} onChange={change} placeholder="Your name"/></label><label>Phone number<input required name="phone" value={form.phone} onChange={change} placeholder="03XXXXXXXXX" pattern="^[0-9+ -]{10,16}$"/></label><label>City<input required name="city" value={form.city} onChange={change}/></label><label>Full delivery address<textarea required name="address" value={form.address} onChange={change} rows="3" placeholder="House, street, area"/></label><label>Order notes (optional)<textarea name="notes" value={form.notes} onChange={change} rows="2"/></label>
-      <div className="order-summary"><h3>Order summary</h3>{cart.map(x=><div className="summary-row" key={x.id}><span>{x.name} × {x.qty}</span><b>{money(x.price*x.qty)}</b></div>)}<div className="summary-row"><span>Subtotal</span><b>{money(subtotal)}</b></div><div className="summary-row"><span>Delivery charges</span><b>{money(deliveryFee)}</b></div><div className="summary-total"><span>Total to pay (COD)</span><b>{money(total)}</b></div><small>Delivery fee is Rs. 149 per order.</small></div>
-      <button disabled={busy} className="button">{busy?"Submitting...":"Place order request"}</button>{message&&<p className="notice" role="status">{message}</p>}
-    </form>}</div></main>;
+function ProductPage({products,add}) {
+ const {id}=useParams(),p=products.find(x=>x.id===id);
+ if(!p)return <main className="section"><p className="muted">This product is unavailable or has been removed.</p><Link to="/">Back to shop</Link></main>;
+ return <main className="section product-detail"><Link to="/" className="back-link"><ArrowLeft size={16}/> Back to shop</Link><div className="detail-grid"><div className="detail-image">{p.image_url?<img src={p.image_url} alt={p.name}/>:<div className="image-placeholder"><Package size={60}/><span>TECHZEN</span></div>}</div><div><span className="eyebrow purple">{p.category}</span><h1>{p.name}</h1><p className="price detail-price">{money(p.price)} {p.compare_at>p.price&&<del>{money(p.compare_at)}</del>}</p><p className="muted">{p.description||"Contact us to confirm product details."}</p><p className="stock-label">{stockLabel(p)}</p><button className="button" disabled={p.stock===0} onClick={()=>add(p)}>Add to cart</button></div></div></main>;
+}
+
+function Cart({cart,updateQty,remove}) {
+ const subtotal=cart.reduce((s,x)=>s+x.price*x.qty,0);
+ return <main className="section checkout"><h1>Your cart</h1>{!cart.length?<p className="muted">Your cart is empty. <Link to="/">Continue shopping</Link></p>:<><div className="panel">{cart.map(x=><div className="cart-row" key={x.id}><div className="cart-item-name"><b>{x.name}</b><small>{money(x.price)} each</small></div><div className="qty-controls"><button className="icon-btn" aria-label="Decrease quantity" onClick={()=>updateQty(x.id,x.qty-1)}><Minus size={16}/></button><b>{x.qty}</b><button className="icon-btn" aria-label="Increase quantity" disabled={x.stock!=null&&x.qty>=x.stock} onClick={()=>updateQty(x.id,x.qty+1)}><Plus size={16}/></button><button className="icon-btn danger" aria-label="Remove item" onClick={()=>remove(x.id)}><Trash2 size={16}/></button></div><b>{money(x.price*x.qty)}</b></div>)}<div className="summary-total"><span>Subtotal</span><b>{money(subtotal)}</b></div></div><Link className="button" to="/checkout">Continue to checkout</Link></>}</main>;
+}
+
+function Checkout({cart,clear}) {
+ const [form,setForm]=useState({name:"",phone:"",address:"",city:"Karachi",notes:""}),[busy,setBusy]=useState(false),[message,setMessage]=useState(""),[order,setOrder]=useState(null);
+ const subtotal=cart.reduce((s,x)=>s+x.price*x.qty,0),deliveryFee=cart.length?149:0,total=subtotal+deliveryFee;
+ const change=e=>setForm({...form,[e.target.name]:e.target.value});
+ async function submit(e){e.preventDefault();setBusy(true);setMessage("");const items=cart.map(x=>({product_id:x.id,quantity:x.qty}));if(!supabase){setMessage("Store connection is unavailable. Please try again later.");setBusy(false);return;}const {data,error}=await supabase.from("orders").insert({customer_name:form.name,phone:form.phone,address:form.address,city:form.city,notes:form.notes,items}).select("id,total,delivery_fee").single();setBusy(false);if(error){setMessage(error.message.includes("Insufficient stock")?"Sorry, there isn't enough stock for one or more items. Please update your cart.":error.message.includes("Product unavailable")?"A product in your cart is no longer available. Please refresh the shop.":"We couldn't submit your order. Please try again.");}else{setOrder(data);setMessage("Order request received! We'll contact you to confirm delivery.");clear();}}
+ const waText=order?encodeURIComponent(`Hello TechZen, I placed order #${order.id.slice(0,8)}. Please confirm my order.`):"";
+ return <main className="section checkout"><div><span className="eyebrow purple">CASH ON DELIVERY</span><h1>Checkout</h1><p className="muted">We'll contact you to confirm availability and delivery before dispatch.</p>{!cart.length&&!order?<p>Your cart is empty. <Link to="/">Continue shopping</Link></p>:order?<div className="panel"><h2>Order received</h2><p>{message}</p><p><b>Order reference:</b> {order.id.slice(0,8).toUpperCase()}</p><p><b>Total:</b> {money(order.total)}</p>{WHATSAPP&&<a className="button" href={`https://wa.me/${WHATSAPP}?text=${waText}`} target="_blank" rel="noreferrer"><MessageCircle size={17}/> Message TechZen on WhatsApp</a>}<Link className="button button-outline" to="/">Continue shopping</Link></div>:<form className="checkout-form" onSubmit={submit}><label>Full name<input required name="name" value={form.name} onChange={change} placeholder="Your name"/></label><label>Phone number<input required name="phone" value={form.phone} onChange={change} placeholder="03XXXXXXXXX" pattern="^[0-9+ -]{10,16}$"/></label><label>City<input required name="city" value={form.city} onChange={change}/></label><label>Full delivery address<textarea required name="address" value={form.address} onChange={change} rows="3" placeholder="House, street, area"/></label><label>Order notes (optional)<textarea name="notes" value={form.notes} onChange={change} rows="2"/></label><div className="order-summary"><h3>Order summary</h3>{cart.map(x=><div className="summary-row" key={x.id}><span>{x.name} × {x.qty}</span><b>{money(x.price*x.qty)}</b></div>)}<div className="summary-row"><span>Subtotal</span><b>{money(subtotal)}</b></div><div className="summary-row"><span>Delivery charges</span><b>{money(deliveryFee)}</b></div><div className="summary-total"><span>Total to pay (COD)</span><b>{money(total)}</b></div><small>Delivery fee is currently Rs. 149 per order. Confirm it with the store before dispatch.</small></div><button disabled={busy} className="button">{busy?"Submitting…":"Place order request"}</button>{message&&<p className="notice" role="status">{message}</p>}</form>}</div></main>;
+}
+
+function InfoPage({type}) {
+ const pages={
+ about:["About TechZen","TechZen is a small online gadget storefront focused on useful everyday technology, clear prices and straightforward cash-on-delivery order requests."],
+ contact:["Contact TechZen","For product questions, availability and order support, contact us through WhatsApp once our store number is published."],
+ faq:["Frequently asked questions","How do I order? Add products to your cart and submit the COD checkout form. Is payment online? No, the current checkout is cash on delivery. Is stock guaranteed? We confirm availability before dispatch. What are delivery charges? The current displayed fee is Rs. 149 per order; confirm it before dispatch. Can I return an item? Contact the store before ordering to confirm the current return terms."]
+ };
+ const [title,body]=pages[type];
+ return <main className="section info-page"><span className="eyebrow purple">TECHZEN</span><h1>{title}</h1><p className="muted">{body}</p>{type==="contact"&&WHATSAPP&&<a className="button" href={`https://wa.me/${WHATSAPP}`} target="_blank" rel="noreferrer"><MessageCircle size={17}/> Chat on WhatsApp</a>}</main>;
 }
 
 function Admin() {
-  const [session, setSession] = useState(null);
-  const [email,setEmail]=useState(""); const [password,setPassword]=useState("");
-  const [products,setProducts]=useState([]); const [orders,setOrders]=useState([]); const [notice,setNotice]=useState("");
-  const [draft,setDraft]=useState({name:"",category:"Accessories",price:"",compare_at:"",description:"",image_url:"",active:true});
-  const [imageFile,setImageFile]=useState(null);
-  const [imagePreview,setImagePreview]=useState("");
-  const [editingId,setEditingId]=useState(null);
-  useEffect(()=>{ if(!supabase)return; supabase.auth.getSession().then(({data})=>setSession(data.session)); const {data:{subscription}}=supabase.auth.onAuthStateChange((_e,s)=>setSession(s)); return ()=>subscription.unsubscribe(); },[]);
-  async function load(){ if(!supabase)return; const [p,o]=await Promise.all([supabase.from("products").select("*").order("created_at",{ascending:false}),supabase.from("orders").select("*").order("created_at",{ascending:false})]); if(p.data)setProducts(p.data); if(o.data)setOrders(o.data); }
-  useEffect(()=>{if(session)load();},[session]);
-  async function login(e){e.preventDefault();if(!supabase){setNotice("Add your Supabase URL and publishable key to the Cloudflare Pages environment variables first.");return;}const {error}=await supabase.auth.signInWithPassword({email,password});setNotice(error?error.message:"");}
-  async function save(e){
-    e.preventDefault();
-    setNotice("Saving product...");
-    let imageUrl = draft.image_url.trim();
-    if (imageFile) {
-      if (!supabase) { setNotice("Supabase is not configured."); return; }
-      const extension = imageFile.name.split(".").pop().toLowerCase();
-      const filePath = `${Date.now()}-${crypto.randomUUID()}.${extension}`;
-      const { error: uploadError } = await supabase.storage.from("techzen-products").upload(filePath, imageFile, { cacheControl:"3600", upsert:false, contentType:imageFile.type });
-      if (uploadError) { setNotice(`Image upload failed: ${uploadError.message}`); return; }
-      imageUrl = supabase.storage.from("techzen-products").getPublicUrl(filePath).data.publicUrl;
-    }
-    const row={...draft,image_url:imageUrl || null,price:Number(draft.price),compare_at:Number(draft.compare_at||0)};
-    const {error}= editingId
-      ? await supabase.from("products").update(row).eq("id",editingId)
-      : await supabase.from("products").insert(row);
-    setNotice(error?error.message:(editingId?"Product updated successfully.":"Product added successfully."));
-    if(!error){
-      setDraft({name:"",category:"Accessories",price:"",compare_at:"",description:"",image_url:"",active:true});
-      setImageFile(null); setImagePreview(""); setEditingId(null); load();
-    }
-  }
-  function startEdit(p){
-    setEditingId(p.id);
-    setDraft({name:p.name||"",category:p.category||"Accessories",price:String(p.price??""),compare_at:String(p.compare_at??""),description:p.description||"",image_url:p.image_url||"",active:p.active!==false});
-    setImageFile(null); setImagePreview(p.image_url||"");
-    setNotice("Editing product. Make changes and save.");
-    window.scrollTo({top:0,behavior:"smooth"});
-  }
-  function cancelEdit(){
-    setEditingId(null); setDraft({name:"",category:"Accessories",price:"",compare_at:"",description:"",image_url:"",active:true});
-    setImageFile(null); setImagePreview(""); setNotice("Edit cancelled.");
-  }
-  async function updateStatus(id,status){const {error}=await supabase.from("orders").update({status}).eq("id",id);setNotice(error?error.message:"Order updated.");load();}
-  async function remove(id){if(!confirm("Delete this product?"))return;const {error}=await supabase.from("products").delete().eq("id",id);setNotice(error?error.message:"Product deleted.");load();}
-  if(!session)return <main className="section admin-wrap"><div className="admin-login"><span className="eyebrow purple">TECHZEN MANAGEMENT</span><h1>Admin login</h1><p className="muted">Sign in with the admin account created in Supabase.</p><form onSubmit={login}><label>Email<input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Password<input type="password" required value={password} onChange={e=>setPassword(e.target.value)}/></label><button className="button">Sign in</button></form>{notice&&<p className="notice">{notice}</p>}</div></main>;
-  return <main className="section admin-wrap"><div className="admin-title"><div><span className="eyebrow purple">STORE CONTROL</span><h1>Dashboard</h1></div><button className="button button-outline" onClick={()=>supabase.auth.signOut()}><LogOut size={16}/> Sign out</button></div>
-    <div className="stats"><div><LayoutDashboard/><small>Products</small><b>{products.length}</b></div><div><ShoppingBag/><small>Orders</small><b>{orders.length}</b></div><div><Package/><small>Pending</small><b>{orders.filter(o=>o.status==="pending").length}</b></div></div>
-    <div className="admin-grid"><section className="panel"><h2>{editingId?"Edit product":"Add product"}</h2><form onSubmit={save}><label>Product name<input required value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})}/></label><label>Category<input value={draft.category} onChange={e=>setDraft({...draft,category:e.target.value})}/></label><div className="two-fields"><label>Sale price (PKR)<input required type="number" min="1" value={draft.price} onChange={e=>setDraft({...draft,price:e.target.value})}/></label><label>Original price<input type="number" min="0" value={draft.compare_at} onChange={e=>setDraft({...draft,compare_at:e.target.value})}/></label></div><label>Upload product image<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>{const f=e.target.files?.[0]||null;if(f && f.size>5*1024*1024){setNotice("Choose an image smaller than 5 MB.");e.target.value="";return;}setImageFile(f);setImagePreview(f?URL.createObjectURL(f):"");}}/><small className="field-hint">JPG, PNG or WebP · Maximum 5 MB</small></label>{imagePreview&&<img className="admin-image-preview" src={imagePreview} alt="Product preview"/>}<label>Or paste image URL<input value={draft.image_url} onChange={e=>setDraft({...draft,image_url:e.target.value})} placeholder="https://..."/></label><label>Description<textarea rows="3" value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})}/></label><button className="button"><Plus size={16}/> {editingId?"Save changes":"Add product"}</button>{editingId&&<button type="button" className="button button-outline" onClick={cancelEdit}>Cancel edit</button>}</form></section>
-    <section className="panel"><h2>Products ({products.length})</h2>{products.map(p=><div className="admin-row" key={p.id}><span>{p.name}<small>{money(p.price)} · {p.active?"Active":"Hidden"}</small></span><div className="admin-row-actions"><button className="icon-btn" aria-label="Edit product" onClick={()=>startEdit(p)}>Edit</button><button className="icon-btn danger" aria-label="Delete product" onClick={()=>remove(p.id)}><Trash2 size={16}/></button></div></div>)}</section></div>
-    <section className="panel orders-panel"><h2>Customer orders ({orders.length})</h2>{orders.length===0?<p className="muted">No orders yet.</p>:orders.map(o=><div className="order-row" key={o.id}><div><b>{o.customer_name}</b><small>{o.phone} · {o.city} · Total {money(o.total)} (delivery {money(o.delivery_fee ?? 149)})</small><small>{o.address}</small></div><select value={o.status} onChange={e=>updateStatus(o.id,e.target.value)}><option value="pending">Pending</option><option value="confirmed">Confirmed</option><option value="shipped">Shipped</option><option value="delivered">Delivered</option><option value="cancelled">Cancelled</option></select></div>)}</section>
-    {notice&&<p className="notice">{notice}</p>}</main>;
+ const [session,setSession]=useState(null),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[products,setProducts]=useState([]),[orders,setOrders]=useState([]),[notice,setNotice]=useState("");
+ const [draft,setDraft]=useState({name:"",category:"Accessories",price:"",compare_at:"",stock:"",description:"",image_url:"",active:true}),[imageFile,setImageFile]=useState(null),[imagePreview,setImagePreview]=useState(""),[editingId,setEditingId]=useState(null);
+ useEffect(()=>{if(!supabase)return;supabase.auth.getSession().then(({data})=>setSession(data.session));const {data:{subscription}}=supabase.auth.onAuthStateChange((_e,s)=>setSession(s));return()=>subscription.unsubscribe();},[]);
+ async function load(){if(!supabase)return;const [p,o]=await Promise.all([supabase.from("products").select("*").order("created_at",{ascending:false}),supabase.from("orders").select("*").order("created_at",{ascending:false})]);if(p.data)setProducts(p.data);if(o.data)setOrders(o.data);}
+ useEffect(()=>{if(session)load();},[session]);
+ async function login(e){e.preventDefault();if(!supabase){setNotice("Supabase is not configured.");return;}const {error}=await supabase.auth.signInWithPassword({email,password});setNotice(error?error.message:"");}
+ async function save(e){e.preventDefault();setNotice("Saving product…");let imageUrl=draft.image_url.trim();if(imageFile){const ext=imageFile.name.split(".").pop().toLowerCase(),path=`${Date.now()}-${crypto.randomUUID()}.${ext}`;const {error:upErr}=await supabase.storage.from("techzen-products").upload(path,imageFile,{cacheControl:"3600",upsert:false,contentType:imageFile.type});if(upErr){setNotice(upErr.message);return;}imageUrl=supabase.storage.from("techzen-products").getPublicUrl(path).data.publicUrl;}const row={...draft,image_url:imageUrl||null,price:Number(draft.price),compare_at:Number(draft.compare_at||0),stock:draft.stock===""?null:Number(draft.stock)};const {error}=editingId?await supabase.from("products").update(row).eq("id",editingId):await supabase.from("products").insert(row);setNotice(error?error.message:"Product saved.");if(!error){reset();load();}}
+ function reset(){setEditingId(null);setDraft({name:"",category:"Accessories",price:"",compare_at:"",stock:"",description:"",image_url:"",active:true});setImageFile(null);setImagePreview("");}
+ function startEdit(p){setEditingId(p.id);setDraft({name:p.name||"",category:p.category||"Accessories",price:String(p.price??""),compare_at:String(p.compare_at??""),stock:p.stock==null?"":String(p.stock),description:p.description||"",image_url:p.image_url||"",active:p.active!==false});setImageFile(null);setImagePreview(p.image_url||"");window.scrollTo({top:0,behavior:"smooth"});}
+ async function updateStatus(id,status){const {error}=await supabase.from("orders").update({status}).eq("id",id);setNotice(error?error.message:"Order status updated.");load();}
+ async function remove(id){if(!confirm("Delete this product?"))return;const {error}=await supabase.from("products").delete().eq("id",id);setNotice(error?error.message:"Product deleted.");load();}
+ async function toggleActive(p){const {error}=await supabase.from("products").update({active:!p.active}).eq("id",p.id);setNotice(error?error.message:"Product visibility updated.");load();}
+ if(!session)return <main className="section admin-wrap"><div className="admin-login"><span className="eyebrow purple">TECHZEN MANAGEMENT</span><h1>Admin login</h1><p className="muted">Sign in with the admin account created in Supabase.</p><form onSubmit={login}><label>Email<input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Password<input type="password" required value={password} onChange={e=>setPassword(e.target.value)}/></label><button className="button">Sign in</button></form>{notice&&<p className="notice">{notice}</p>}</div></main>;
+ return <main className="section admin-wrap"><div className="admin-title"><div><span className="eyebrow purple">STORE CONTROL</span><h1>Dashboard</h1></div><button className="button button-outline" onClick={()=>supabase.auth.signOut()}><LogOut size={16}/> Sign out</button></div><div className="stats"><div><LayoutDashboard/><small>Products</small><b>{products.length}</b></div><div><ShoppingBag/><small>Orders</small><b>{orders.length}</b></div><div><Package/><small>Pending</small><b>{orders.filter(o=>o.status==="pending").length}</b></div></div><div className="admin-grid"><section className="panel"><h2>{editingId?"Edit product":"Add product"}</h2><form onSubmit={save}><label>Product name<input required value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})}/></label><label>Category<input value={draft.category} onChange={e=>setDraft({...draft,category:e.target.value})}/></label><div className="two-fields"><label>Sale price (PKR)<input required type="number" min="1" value={draft.price} onChange={e=>setDraft({...draft,price:e.target.value})}/></label><label>Original price<input type="number" min="0" value={draft.compare_at} onChange={e=>setDraft({...draft,compare_at:e.target.value})}/></label></div><label>Stock quantity (leave blank for untracked)<input type="number" min="0" step="1" value={draft.stock} onChange={e=>setDraft({...draft,stock:e.target.value})}/></label><label>Upload product image<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>{const f=e.target.files?.[0]||null;if(f&&f.size>5*1024*1024){setNotice("Choose an image smaller than 5 MB.");e.target.value="";return;}setImageFile(f);setImagePreview(f?URL.createObjectURL(f):"");}}/><small className="field-hint">JPG, PNG or WebP · Maximum 5 MB</small></label>{imagePreview&&<img className="admin-image-preview" src={imagePreview} alt="Product preview"/>}<label>Or paste image URL<input value={draft.image_url} onChange={e=>setDraft({...draft,image_url:e.target.value})}/></label><label>Description<textarea rows="3" value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})}/></label><button className="button"><Plus size={16}/>{editingId?"Save changes":"Add product"}</button>{editingId&&<button type="button" className="button button-outline" onClick={reset}>Cancel edit</button>}</form></section><section className="panel"><h2>Products ({products.length})</h2>{products.map(p=><div className="admin-row" key={p.id}><span>{p.name}<small>{money(p.price)} · {p.stock==null?"Untracked":`${p.stock} left`} · {p.active?"Visible":"Hidden"}</small></span><div className="admin-row-actions"><button className="icon-btn" onClick={()=>toggleActive(p)}>{p.active?"Hide":"Show"}</button><button className="icon-btn" onClick={()=>startEdit(p)}>Edit</button><button className="icon-btn danger" aria-label="Delete product" onClick={()=>remove(p.id)}><Trash2 size={16}/></button></div></div>)}</section></div><section className="panel orders-panel"><h2>Customer orders ({orders.length})</h2>{orders.length===0?<p className="muted">No orders yet.</p>:orders.map(o=><div className="order-row order-row-detail" key={o.id}><div><b>{o.customer_name} · #{o.id.slice(0,8).toUpperCase()}</b><small>{o.phone} · {o.city} · Total {money(o.total)} (delivery {money(o.delivery_fee??149)})</small><small>{o.address}</small><small>Items: {(o.items||[]).map(x=>`${x.name} × ${x.quantity} (${money(x.unit_price*x.quantity)})`).join(", ")}</small>{o.notes&&<small>Notes: {o.notes}</small>}</div><select value={o.status} onChange={e=>updateStatus(o.id,e.target.value)}><option value="pending">Pending</option><option value="confirmed">Confirmed</option><option value="shipped">Shipped</option><option value="delivered">Delivered</option><option value="cancelled">Cancelled</option></select></div>)}</section>{notice&&<p className="notice">{notice}</p>}</main>;
 }
 
-export default function App() {
-  const products=useProducts(); const [cart,setCart]=useState([]);
-  const count=cart.reduce((s,x)=>s+x.qty,0);
-  function add(p){setCart(old=>{const found=old.find(x=>x.id===p.id);return found?old.map(x=>x.id===p.id?{...x,qty:x.qty+1}:x):[...old,{...p,qty:1}];});}
-  function clear(){setCart([]);}
-  return <div className="app-shell"><Header count={count}/><Routes><Route path="/" element={<Home products={products} add={add}/>}/><Route path="/checkout" element={<Checkout cart={cart} clear={clear}/>}/><Route path="/admin" element={<Admin/>}/><Route path="*" element={<main className="section"><h1>Page not found</h1><Link to="/">Back home</Link></main>}/></Routes>
-    <footer className="footer"><Link to="/" className="brand"><span className="brand-mark">TZ</span><span>TECH<span className="purple">ZEN</span><small>TECH MADE EASY</small></span></Link><p>Shop smart. Live better.</p><small>© {new Date().getFullYear()} TechZen. Product availability and delivery are confirmed before dispatch.</small></footer>
-    {cart.length>0&&<div className="cart-dock"><div><b>{count} item(s)</b><small>{money(cart.reduce((s,x)=>s+x.price*x.qty,0))}</small></div><Link className="button" to="/checkout">Checkout</Link></div>}
-  </div>;
+export default function App(){
+ const {products,loading,error}=useProducts();
+ const [cart,setCart]=useState(()=>{try{return JSON.parse(localStorage.getItem("techzen-cart")||"[]");}catch{return[];}});
+ useEffect(()=>{localStorage.setItem("techzen-cart",JSON.stringify(cart));},[cart]);
+ const count=cart.reduce((s,x)=>s+x.qty,0);
+ function add(p){setCart(old=>{const found=old.find(x=>x.id===p.id);if(found){if(p.stock!=null&&found.qty>=p.stock)return old;return old.map(x=>x.id===p.id?{...x,qty:x.qty+1}:x);}return p.stock===0?old:[...old,{...p,qty:1}];});}
+ function updateQty(id,qty){setCart(old=>qty<1?old.filter(x=>x.id!==id):old.map(x=>{const p=products.find(z=>z.id===id);return x.id===id?{...x,qty:p?.stock!=null?Math.min(qty,p.stock):qty}:x;}));}
+ function remove(id){setCart(old=>old.filter(x=>x.id!==id));}
+ function clear(){setCart([]);}
+ return <div className="app-shell"><Header count={count}/><Routes><Route path="/" element={<Home products={products} loading={loading} error={error} add={add}/>}/><Route path="/product/:id" element={<ProductPage products={products} add={add}/>}/><Route path="/cart" element={<Cart cart={cart} updateQty={updateQty} remove={remove}/>}/><Route path="/checkout" element={<Checkout cart={cart} clear={clear}/>}/><Route path="/about" element={<InfoPage type="about"/>}/><Route path="/faq" element={<InfoPage type="faq"/>}/><Route path="/contact" element={<InfoPage type="contact"/>}/><Route path="/shipping" element={<InfoPage type="faq"/>}/><Route path="/returns" element={<InfoPage type="faq"/>}/><Route path="/privacy" element={<InfoPage type="faq"/>}/><Route path="/admin" element={<Admin/>}/><Route path="*" element={<main className="section"><h1>Page not found</h1><Link to="/">Back home</Link></main>}/></Routes><footer className="footer"><Link to="/" className="brand"><span className="brand-mark">TZ</span><span>TECH<span className="purple">ZEN</span><small>TECH MADE EASY</small></span></Link><p>Shop smart. Live better.</p><div className="footer-links"><Link to="/shipping">Shipping</Link><Link to="/returns">Returns</Link><Link to="/privacy">Privacy</Link><Link to="/contact">Contact</Link></div><small>© {new Date().getFullYear()} TechZen. Product availability and delivery are confirmed before dispatch.</small></footer>{cart.length>0&&<div className="cart-dock"><div><b>{count} item(s)</b><small>{money(cart.reduce((s,x)=>s+x.price*x.qty,0))}</small></div><Link className="button" to="/cart">View cart</Link></div>}</div>;
 }
