@@ -10,6 +10,7 @@ create table public.products (
   price integer not null check (price > 0),
   compare_at integer not null default 0,
   active boolean not null default true,
+  stock integer null check (stock is null or stock >= 0),
   created_at timestamptz not null default now()
 );
 
@@ -83,40 +84,33 @@ declare
   v_quantity integer;
   v_name text;
   v_price integer;
+  v_stock integer;
   v_items jsonb := '[]'::jsonb;
   v_subtotal integer := 0;
 begin
   if jsonb_typeof(new.items) <> 'array' or jsonb_array_length(new.items) = 0 then
     raise exception 'Order must contain at least one item';
   end if;
-
   for v_item in select value from jsonb_array_elements(new.items)
   loop
     v_product_id := (v_item ->> 'product_id')::uuid;
     v_quantity := (v_item ->> 'quantity')::integer;
-
     if v_quantity < 1 or v_quantity > 20 then
       raise exception 'Invalid item quantity';
     end if;
-
-    select p.name, p.price
-      into v_name, v_price
-      from public.products p
-      where p.id = v_product_id and p.active = true;
-
-    if not found then
-      raise exception 'Product unavailable';
+    select p.name, p.price, p.stock into v_name, v_price, v_stock
+      from public.products p where p.id = v_product_id and p.active = true
+      for update;
+    if not found then raise exception 'Product unavailable'; end if;
+    if v_stock is not null then
+      if v_stock < v_quantity then raise exception 'Insufficient stock for %', v_name; end if;
+      update public.products set stock = stock - v_quantity where id = v_product_id;
     end if;
-
     v_subtotal := v_subtotal + (v_price * v_quantity);
     v_items := v_items || jsonb_build_array(jsonb_build_object(
-      'product_id', v_product_id,
-      'name', v_name,
-      'unit_price', v_price,
-      'quantity', v_quantity
+      'product_id', v_product_id, 'name', v_name, 'unit_price', v_price, 'quantity', v_quantity
     ));
   end loop;
-
   new.items := v_items;
   new.delivery_fee := 149;
   new.total := v_subtotal + new.delivery_fee;
