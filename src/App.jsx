@@ -4,7 +4,7 @@ import { ShoppingBag, Search, Menu, X, ShieldCheck, Truck, Headphones, Plus, Min
 import { supabase } from "./lib/supabase";
 
 const WHATSAPP = "923022054725";
-const SUPPORT_EMAIL = "lulukutko@gmail.com";
+const SUPPORT_EMAIL = "techzen.cd@gmail.com";
 const money = n => `Rs. ${Number(n || 0).toLocaleString("en-PK")}`;
 const stockLabel = p => p.stock == null ? "Availability confirmed on order" : p.stock > 0 ? `${p.stock} in stock` : "Out of stock";
 
