@@ -96,8 +96,10 @@ function Admin() {
       imageUrl = supabase.storage.from("techzen-products").getPublicUrl(filePath).data.publicUrl;
     }
     const row={...draft,image_url:imageUrl || null,price:Number(draft.price),compare_at:Number(draft.compare_at||0)};
-    const {error}=await supabase.from("products").insert(row);
-    setNotice(error?error.message:"Product added successfully.");
+    const {error}= editingId
+      ? await supabase.from("products").update(row).eq("id",editingId)
+      : await supabase.from("products").insert(row);
+    setNotice(error?error.message:(editingId?"Product updated successfully.":"Product added successfully."));
     if(!error){
       setDraft({name:"",category:"Accessories",price:"",compare_at:"",description:"",image_url:"",active:true});
       setImageFile(null); setImagePreview(""); setEditingId(null); load();
