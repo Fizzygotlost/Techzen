@@ -8,7 +8,7 @@ A free-tier React + Vite storefront starter for TechZen.
 - Cart and website checkout form
 - Supabase product/order integration
 - Admin sign-in, product management and order status dashboard
-- Netlify deployment configuration
+- Cloudflare Pages deployment setup
 
 ## 1. Run locally
 Install Node.js, then:
@@ -19,28 +19,29 @@ cp .env.example .env
 npm run dev
 ```
 
-## 2. Create Supabase project
-1. Create a project at https://supabase.com/
-2. Open SQL Editor and run `supabase/schema.sql`.
-3. In Authentication > Users, create your admin user.
-4. Copy the Project URL and publishable/anon key into `.env`:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-5. Never put a Supabase `service_role` or secret key in frontend code.
+## 2. Supabase setup
+The TechZen Supabase project has already been created and the schema applied.
+1. Use the project URL and publishable key from Supabase project settings.
+2. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in your local `.env` file.
+3. Create your admin user in Supabase Authentication.
+4. In that user's **App Metadata**, set `{"role":"admin"}`. Do not put this in User Metadata.
+5. Disable public sign-ups. Only the intended admin account should be able to sign in.
 
-## 3. Deploy free on Netlify
-1. Push this project to a GitHub repository.
-2. Import that repository in Netlify.
-3. Build command: `npm run build`
-4. Publish directory: `dist`
-5. Add the two environment variables from `.env` in Netlify site settings.
-6. Deploy. Netlify will provide a `*.netlify.app` address.
+Never put a Supabase `service_role` or secret key in frontend code. The database policies only grant dashboard access to users whose trusted App Metadata role is `admin`.
+
+## 3. Deploy free on Cloudflare Pages
+1. Connect the GitHub repository to Cloudflare Pages.
+2. Framework preset: **Vite**.
+3. Build command: `npm run build`.
+4. Build output directory: `dist`.
+5. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` as Pages environment variables.
+6. Deploy. Cloudflare Pages will provide a `*.pages.dev` address.
 
 ## Important launch checks
-- Confirm Supabase RLS policies and test using a separate non-admin browser session.
 - Add only product claims confirmed by the supplier.
 - Confirm supplier authorization, commission, delivery, COD settlement and return terms before accepting real orders.
 - The demo products are placeholders. Replace them with verified products and authorized product images.
-- This starter records order requests; it does not integrate a courier, payment gateway, inventory sync, automated email/SMS, or Markaz API.
+- Checkout requests are limited to COD and the database recalculates item names and prices from active products. Delivery charges are not included in the product subtotal and must be confirmed with the customer.
+- This starter does not integrate a courier, payment gateway, inventory sync, automated email/SMS, or Markaz API.
 - Protect the admin account with a strong unique password and enable MFA if available.
-- Free-tier quotas and policies can change; check provider limits before launch.
+- Free-tier quotas and provider policies can change; check current limits before launch.
