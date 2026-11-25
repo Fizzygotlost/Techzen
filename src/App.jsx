@@ -51,11 +51,14 @@ function Checkout({cart,clear}) {
 
 function InfoPage({type}) {
  const pages={
- about:["About TechZen","TechZen is a small online gadget storefront focused on useful everyday technology, clear prices and straightforward cash-on-delivery order requests."],
- contact:["Contact TechZen","For product questions, availability and order support, contact us through WhatsApp once our store number is published."],
- faq:["Frequently asked questions","How do I order? Add products to your cart and submit the COD checkout form. Is payment online? No, the current checkout is cash on delivery. Is stock guaranteed? We confirm availability before dispatch. What are delivery charges? The current displayed fee is Rs. 149 per order; confirm it before dispatch. Can I return an item? Contact the store before ordering to confirm the current return terms."]
+ about:["About TechZen","TechZen is an online gadget storefront focused on useful everyday technology, clear product information and straightforward cash-on-delivery order requests."],
+ contact:["Contact TechZen","For product questions, availability and order support, use the WhatsApp contact button when the store number is configured. You can also submit an order request and the store will contact you using the phone number you provide."],
+ faq:["Frequently asked questions","How do I order? Add products to your cart and submit the COD checkout form. Is payment online? No, the current checkout is cash on delivery. Is stock guaranteed? Tracked stock is checked at checkout; untracked items are confirmed by the store before dispatch. What are delivery charges? The current displayed fee is Rs. 149 per order, subject to confirmation before dispatch."],
+ shipping:["Shipping information","The current checkout displays a flat Rs. 149 delivery charge per order. Delivery time and courier service are not yet integrated into this website. TechZen must confirm availability, delivery fee and estimated arrival with you before dispatch. Do not treat an order request as a confirmed shipment."],
+ returns:["Returns and cancellations","A return, exchange or cancellation policy has not yet been finalized by TechZen. Contact the store before placing an order to confirm whether the item can be returned or exchanged and what conditions apply. Orders are requests until the store confirms them."],
+ privacy:["Privacy information","The checkout form collects your name, phone number, city, delivery address and optional order notes so TechZen can process and confirm your order. Order information is stored in the store's Supabase database and is visible to authorized store administrators. Do not submit payment-card details; this site currently supports cash on delivery only. A complete retention and contact policy still needs to be published."]
  };
- const [title,body]=pages[type];
+ const [title,body]=pages[type]||pages.about;
  return <main className="section info-page"><span className="eyebrow purple">TECHZEN</span><h1>{title}</h1><p className="muted">{body}</p>{type==="contact"&&WHATSAPP&&<a className="button" href={`https://wa.me/${WHATSAPP}`} target="_blank" rel="noreferrer"><MessageCircle size={17}/> Chat on WhatsApp</a>}</main>;
 }
 
