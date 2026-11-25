@@ -53,14 +53,23 @@ function Checkout({cart,clear}) {
 function InfoPage({type}) {
  const pages={
  about:["About TechZen","TechZen is an online gadget storefront focused on useful everyday technology, clear product information and straightforward cash-on-delivery order requests."],
- contact:["Contact TechZen","For product questions, availability and order support, use the WhatsApp contact button when the store number is configured. You can also submit an order request and the store will contact you using the phone number you provide."],
- faq:["Frequently asked questions","How do I order? Add products to your cart and submit the COD checkout form. Is payment online? No, the current checkout is cash on delivery. Is stock guaranteed? Tracked stock is checked at checkout; untracked items are confirmed by the store before dispatch. What are delivery charges? The current displayed fee is Rs. 149 per order, subject to confirmation before dispatch."],
+ contact:["Contact TechZen","For product questions, availability and order support, contact TechZen by email. You can also submit an order request and the store will contact you using the phone number you provide."],
  shipping:["Shipping information","The current checkout displays a flat Rs. 149 delivery charge per order. Delivery time and courier service are not yet integrated into this website. TechZen must confirm availability, delivery fee and estimated arrival with you before dispatch. Do not treat an order request as a confirmed shipment."],
  returns:["Returns and cancellations","A return, exchange or cancellation policy has not yet been finalized by TechZen. Contact the store before placing an order to confirm whether the item can be returned or exchanged and what conditions apply. Orders are requests until the store confirms them."],
  privacy:["Privacy information","The checkout form collects your name, phone number, city, delivery address and optional order notes so TechZen can process and confirm your order. Order information is stored in the store's Supabase database and is visible to authorized store administrators. Do not submit payment-card details; this site currently supports cash on delivery only. A complete retention and contact policy still needs to be published."]
  };
+ const faqs=[
+ ["How do I place an order?","Choose a product, add it to your cart, then complete the checkout form with your name, phone number and delivery address."],
+ ["What payment methods do you accept?","The website currently supports Cash on Delivery (COD). Online payments are not available yet."],
+ ["How much is delivery?","The checkout currently displays a delivery fee of Rs. 149 per order. TechZen will confirm the final delivery charges before dispatch."],
+ ["Is the product always in stock?","Products with tracked stock are checked during checkout. For products without a stock quantity, availability is confirmed by TechZen before dispatch."],
+ ["When will my order be delivered?","Delivery time depends on your location and courier. TechZen will confirm the estimated delivery time with you before dispatch."],
+ ["Can I cancel or return an order?","Please contact TechZen before dispatch if you want to cancel. Return and exchange conditions should be confirmed with the store before ordering."],
+ ["How can I contact TechZen?","Email support at techzen.cd@gmail.com for product questions or order assistance."]
+ ];
+ const [openFaq,setOpenFaq]=useState(null);
  const [title,body]=pages[type]||pages.about;
- return <main className="section info-page"><span className="eyebrow purple">TECHZEN</span><h1>{title}</h1><p className="muted">{body}</p>{type==="contact"&&<div className="contact-actions"><a className="button" href={`https://wa.me/${WHATSAPP}`} target="_blank" rel="noreferrer"><MessageCircle size={17}/> WhatsApp: 0302 2054725</a><a className="button button-outline" href={`mailto:${SUPPORT_EMAIL}`}>Email: {SUPPORT_EMAIL}</a></div>}</main>;
+ return <main className="section info-page"><span className="eyebrow purple">TECHZEN</span><h1>{type==="faq"?"Frequently asked questions":title}</h1>{type==="faq"?<div className="faq-list">{faqs.map(([question,answer],i)=><section className={openFaq===i?"faq-item faq-open":"faq-item"} key={question}><button className="faq-question" type="button" aria-expanded={openFaq===i} onClick={()=>setOpenFaq(openFaq===i?null:i)}><span>{question}</span><span className="faq-toggle">{openFaq===i?"−":"+"}</span></button>{openFaq===i&&<p className="faq-answer">{answer}</p>}</section>)}</div>:<><p className="muted">{body}</p>{type==="contact"&&<div className="contact-actions"><a className="button button-outline" href={`mailto:${SUPPORT_EMAIL}`}>Email: {SUPPORT_EMAIL}</a></div>}</>}</main>;
 }
 
 function Admin() {
