@@ -1,7 +1,7 @@
--- Run this in Supabase SQL Editor.
+-- TechZen database schema. The live project was provisioned using this schema.
 create extension if not exists pgcrypto;
 
-create table if not exists public.products (
+create table public.products (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   category text not null default 'Accessories',
@@ -13,44 +13,117 @@ create table if not exists public.products (
   created_at timestamptz not null default now()
 );
 
-create table if not exists public.orders (
+create table public.orders (
   id uuid primary key default gen_random_uuid(),
   customer_name text not null,
   phone text not null,
   address text not null,
   city text not null,
   notes text default '',
-  items jsonb not null,
-  total integer not null check (total >= 0),
-  status text not null default 'pending' check (status in ('pending','confirmed','shipped','delivered','cancelled')),
-  payment_method text not null default 'cash_on_delivery',
+  items jsonb not null check (jsonb_typeof(items) = 'array'),
+  total integer not null default 0 check (total >= 0),
+  status text not null default 'pending'
+    check (status in ('pending','confirmed','shipped','delivered','cancelled')),
+  payment_method text not null default 'cash_on_delivery'
+    check (payment_method = 'cash_on_delivery'),
   created_at timestamptz not null default now()
 );
 
 alter table public.products enable row level security;
 alter table public.orders enable row level security;
 
--- Public can read active products. Only authenticated admins can manage products.
-create policy "Public can read active products" on public.products
-for select using (active = true or auth.role() = 'authenticated');
-create policy "Admins can insert products" on public.products
-for insert to authenticated with check (true);
-create policy "Admins can update products" on public.products
-for update to authenticated using (true) with check (true);
-create policy "Admins can delete products" on public.products
-for delete to authenticated using (true);
+create policy "Public can read active products"
+on public.products for select to anon, authenticated
+using (active = true);
 
--- Public checkout can create order requests. Customers cannot read orders.
-create policy "Public can create order requests" on public.orders
-for insert to anon, authenticated with check (
-  status = 'pending' and payment_method = 'cash_on_delivery'
-);
-create policy "Admins can read orders" on public.orders
-for select to authenticated using (true);
-create policy "Admins can update orders" on public.orders
-for update to authenticated using (true) with check (true);
+create policy "TechZen admins can read all products"
+on public.products for select to authenticated
+using ((select auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+
+create policy "TechZen admins can insert products"
+on public.products for insert to authenticated
+with check ((select auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+
+create policy "TechZen admins can update products"
+on public.products for update to authenticated
+using ((select auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
+with check ((select auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+
+create policy "TechZen admins can delete products"
+on public.products for delete to authenticated
+using ((select auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+
+create policy "Public can submit COD order requests"
+on public.orders for insert to anon, authenticated
+with check (status = 'pending' and payment_method = 'cash_on_delivery');
+
+create policy "TechZen admins can read orders"
+on public.orders for select to authenticated
+using ((select auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+
+create policy "TechZen admins can update orders"
+on public.orders for update to authenticated
+using ((select auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
+with check ((select auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 
 grant select on public.products to anon, authenticated;
 grant insert, update, delete on public.products to authenticated;
 grant insert on public.orders to anon, authenticated;
 grant select, update on public.orders to authenticated;
+
+create or replace function public.normalize_order_request()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_item jsonb;
+  v_product_id uuid;
+  v_quantity integer;
+  v_name text;
+  v_price integer;
+  v_items jsonb := '[]'::jsonb;
+  v_total integer := 0;
+begin
+  if jsonb_typeof(new.items) <> 'array' or jsonb_array_length(new.items) = 0 then
+    raise exception 'Order must contain at least one item';
+  end if;
+
+  for v_item in select value from jsonb_array_elements(new.items)
+  loop
+    v_product_id := (v_item ->> 'product_id')::uuid;
+    v_quantity := (v_item ->> 'quantity')::integer;
+
+    if v_quantity < 1 or v_quantity > 20 then
+      raise exception 'Invalid item quantity';
+    end if;
+
+    select p.name, p.price
+      into v_name, v_price
+      from public.products p
+      where p.id = v_product_id and p.active = true;
+
+    if not found then
+      raise exception 'Product unavailable';
+    end if;
+
+    v_total := v_total + (v_price * v_quantity);
+    v_items := v_items || jsonb_build_array(jsonb_build_object(
+      'product_id', v_product_id,
+      'name', v_name,
+      'unit_price', v_price,
+      'quantity', v_quantity
+    ));
+  end loop;
+
+  new.items := v_items;
+  new.total := v_total;
+  new.status := 'pending';
+  new.payment_method := 'cash_on_delivery';
+  return new;
+end;
+$$;
+
+create trigger normalize_order_request_before_insert
+before insert on public.orders
+for each row execute function public.normalize_order_request();
