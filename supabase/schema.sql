@@ -7,6 +7,7 @@ create table public.products (
   category text not null default 'Accessories',
   description text not null default '',
   image_url text,
+  images text[] not null default '{}',
   price integer not null check (price > 0),
   compare_at integer not null default 0,
   active boolean not null default true,
