@@ -87,3 +87,18 @@
 .info-page .policy-content{max-width:780px;margin-top:24px}
 .info-page .policy-content p{font-size:14px;line-height:1.85;margin:0 0 18px;color:#b9b5c7}
 .info-page .policy-content a{overflow-wrap:anywhere}
+
+
+/* Customer product reviews */
+.reviews-section{margin:64px auto 20px;max-width:900px}
+.review-card{padding:16px 18px;margin:12px 0;background:#14131d;border:1px solid var(--line);border-radius:12px}
+.review-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.review-heading span{color:#f5bd4f;letter-spacing:2px}
+.review-card p{margin:10px 0;color:#d0ccda;line-height:1.65}
+.review-card small{color:var(--muted)}
+.review-form{display:grid;gap:13px;max-width:560px;margin-top:26px;padding:20px;background:#14131d;border:1px solid var(--line);border-radius:14px}
+.review-form h3{margin:0 0 4px}
+.review-form label{display:grid;gap:7px;color:#d8d4e2;font-size:13px}
+.review-form input,.review-form select,.review-form textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;background:#0e0d14;color:#f5f4fa;font:inherit}
+.review-form .field-hint{color:var(--muted);line-height:1.5}
+@media(max-width:650px){.reviews-section{margin-top:44px}.review-form{padding:15px}}
