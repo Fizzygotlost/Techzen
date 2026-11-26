@@ -29,6 +29,7 @@ create table public.orders (
     check (status in ('pending','confirmed','shipped','delivered','cancelled')),
   payment_method text not null default 'cash_on_delivery'
     check (payment_method = 'cash_on_delivery'),
+  stock_deducted boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -103,9 +104,8 @@ begin
       from public.products p where p.id = v_product_id and p.active = true
       for update;
     if not found then raise exception 'Product unavailable'; end if;
-    if v_stock is not null then
-      if v_stock < v_quantity then raise exception 'Insufficient stock for %', v_name; end if;
-      update public.products set stock = stock - v_quantity where id = v_product_id;
+    if v_stock is not null and v_stock < v_quantity then
+      raise exception 'Insufficient stock for %', v_name;
     end if;
     v_subtotal := v_subtotal + (v_price * v_quantity);
     v_items := v_items || jsonb_build_array(jsonb_build_object(
@@ -117,6 +117,50 @@ begin
   new.total := v_subtotal + new.delivery_fee;
   new.status := 'pending';
   new.payment_method := 'cash_on_delivery';
+  new.stock_deducted := false;
+  return new;
+end;
+$$;
+
+create or replace function public.sync_order_stock_on_status_change()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_item jsonb;
+  v_product_id uuid;
+  v_quantity integer;
+  v_stock integer;
+begin
+  if new.status in ('confirmed','shipped','delivered') and not old.stock_deducted then
+    for v_item in select value from jsonb_array_elements(old.items)
+    loop
+      v_product_id := (v_item ->> 'product_id')::uuid;
+      v_quantity := (v_item ->> 'quantity')::integer;
+      select p.stock into v_stock
+        from public.products p where p.id = v_product_id
+        for update;
+      if not found then raise exception 'Product no longer exists'; end if;
+      if v_stock is not null then
+        if v_stock < v_quantity then
+          raise exception 'Insufficient stock to confirm order item %', v_item ->> 'name';
+        end if;
+        update public.products set stock = stock - v_quantity where id = v_product_id;
+      end if;
+    end loop;
+    new.stock_deducted := true;
+  elsif new.status = 'cancelled' and old.stock_deducted then
+    for v_item in select value from jsonb_array_elements(old.items)
+    loop
+      v_product_id := (v_item ->> 'product_id')::uuid;
+      v_quantity := (v_item ->> 'quantity')::integer;
+      update public.products
+        set stock = stock + v_quantity
+        where id = v_product_id and stock is not null;
+    end loop;
+    new.stock_deducted := false;
+  end if;
   return new;
 end;
 $$;
@@ -124,6 +168,12 @@ $$;
 create trigger normalize_order_request_before_insert
 before insert on public.orders
 for each row execute function public.normalize_order_request();
+
+drop trigger if exists sync_order_stock_on_status_change on public.orders;
+create trigger sync_order_stock_on_status_change
+before update of status on public.orders
+for each row when (old.status is distinct from new.status)
+execute function public.sync_order_stock_on_status_change();
 
 
 -- Product images: public read, admin-only uploads and management.
