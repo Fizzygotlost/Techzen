@@ -67,3 +67,17 @@
 .info-page .faq-list .faq-answer{display:block;margin:0;padding:0 18px 18px;background:#14131d;color:#b9b5c7;font-size:13px;line-height:1.7}
 .info-page .faq-list .faq-question:focus-visible{outline:2px solid #a78bfa;outline-offset:-3px}
 @media(max-width:700px){.info-page .faq-list{width:100%;gap:9px}.info-page .faq-list .faq-question{min-height:56px;padding:14px 15px;font-size:13px}.info-page .faq-list .faq-answer{padding:0 15px 15px}}
+
+
+/* Multi-image product gallery */
+.detail-gallery{min-width:0}
+.detail-gallery .detail-image{min-height:340px;height:clamp(280px,38vw,480px)}
+.detail-gallery .detail-image img{display:block;width:100%;height:100%;max-height:100%;object-fit:contain}
+.gallery-thumbnails{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.gallery-thumb{width:72px;height:72px;padding:4px;border:1px solid var(--line);border-radius:9px;background:var(--panel);overflow:hidden;cursor:pointer}
+.gallery-thumb.active{border:2px solid var(--purple)}
+.gallery-thumb img{width:100%;height:100%;object-fit:contain}
+.admin-gallery-preview{display:grid;grid-template-columns:repeat(auto-fill,minmax(85px,1fr));gap:9px}
+.admin-gallery-item{min-width:0;display:grid;gap:5px;color:var(--muted);font-size:10px;text-align:center}
+.admin-gallery-item img{width:100%;height:85px;object-fit:contain;background:#100f17;border:1px solid var(--line);border-radius:8px;padding:4px}
+@media(max-width:700px){.detail-gallery .detail-image{height:300px;min-height:260px}.gallery-thumb{width:62px;height:62px}}
